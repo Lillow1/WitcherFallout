@@ -28,20 +28,20 @@ All the feel is decided in `core/`, where it's unit-tested. The plugin only read
 Run the core tests anywhere:
 
 ```sh
-cmake -S fo4-witcher -B build && cmake --build build && ctest --test-dir build
+cmake -S . -B build && cmake --build build && ctest --test-dir build
 ```
 
 Build the plugin on Windows with Visual Studio 2022, CMake and vcpkg:
 
-1. Clone the **original** CommonLibF4 into `fo4-witcher/extern/CommonLibF4`:
+1. Clone the **original** CommonLibF4 into `extern/CommonLibF4`:
    ```sh
-   git clone https://github.com/Ryan-rsm-McKenzie/CommonLibF4 fo4-witcher/extern/CommonLibF4
+   git clone https://github.com/Ryan-rsm-McKenzie/CommonLibF4 extern/CommonLibF4
    ```
    Don't use the NG forks (alandtse, etc.). They export only `F4SEPlugin_Version`, which F4SE 0.6.23 ignores. That's the same reason LooksMenu 1.7.x won't load on this setup.
 2. Set `VCPKG_ROOT`. Optionally set `Fallout4Path` to auto-copy the DLL and INI after each build.
 3. Configure and build:
    ```sh
-   cmake -S fo4-witcher -B build -G "Visual Studio 17 2022" -A x64
+   cmake -S . -B build -G "Visual Studio 17 2022" -A x64
    cmake --build build --config Release
    ```
 4. Install as an MO2 mod:
