@@ -54,20 +54,22 @@ The log is at `Documents/My Games/Fallout4/F4SE/WitcherCamera.log`. Lock-on even
 
 ## How it hooks in
 
-- **Per-frame update**: a vtable hook on `PlayerCamera::Update` (TESCamera vfunc 0x3). It runs once per frame on the main thread, just before the camera positions itself.
+- **Per-frame update**: vtable hooks on `TESCameraState::Update` (vfunc 0xB) for `ThirdPersonState` and `FirstPersonState`. The active state's update runs once per frame on the main thread, before it reads the player's rotation and shoulder offset.
+  - Don't hook `PlayerCamera::Update` (TESCamera vfunc 0x3) instead: the game calls it directly, not through the vtable, so that hook never fires.
 - **Lock-on and soft lock**: these steer the player's own yaw and pitch (`data.angle`). The vanilla third-person camera follows the player, so collision, animations and first-person all keep working.
 - **Framing**: writes `ThirdPersonState::targetShoulderOffset`. The engine already eases toward that target.
 - **Nearby actors**: read from `ProcessLists::highActorHandles`. This CommonLibF4 doesn't define `ProcessLists`, so `Engine.cpp` uses the 1.10.163 address ID and field offset from alandtse/CommonLibF4.
 - **Input**: an observer at the front of `MenuControls::handlers`. It never consumes events, so the game still gets every key.
+  - Keyboard `idCode`s are Windows virtual-key codes (Z = `0x5A`), not DirectInput scan codes.
 
 ## Check first in game
 
-These are verified against CommonLibF4's headers but haven't been run in game yet:
+Confirmed in game (2026-10-11): lock-on holds while strafing, and positive `fDistance` pulls the camera back (`targetShoulderOffset.y = -fDistance`).
 
-1. **Pull-back direction.** Framing writes `targetShoulderOffset.y = -fDistance`. If melee mode moves the camera *closer*, the sign is flipped. Negate it in `Applier::ApplyFraming`.
-2. **Rotation writes stick.** Lock on to a raider and strafe. The character should keep facing them. If the heading snaps back each frame, the game is overwriting `data.angle` after our hook. We'd then move the write to a later hook.
-3. **Mouse while locked.** Mouse movement is damped back toward the target rather than blocked, so it may feel slightly springy. If that bothers you, zero `PlayerControls::data.lookInputVec` while locked.
-4. **Controller binding.** Right stick click may clash with your current bindings. Change `iLockOnGamepad` in the INI.
+Still to check:
+
+1. **Mouse while locked.** Mouse movement is damped back toward the target rather than blocked, so it may feel slightly springy. If that bothers you, zero `PlayerControls::data.lookInputVec` while locked.
+2. **Controller binding.** Right stick click may clash with your current bindings. Change `iLockOnGamepad` in the INI.
 
 ## Known gaps / next steps
 

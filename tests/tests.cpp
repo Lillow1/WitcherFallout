@@ -452,7 +452,7 @@ TEST(Settings_ShippedIniIsClean)
 		std::printf("  warning: %s\n", w.c_str());
 	}
 	CHECK(warnings.empty());
-	CHECK(s.input.lockOnKey == 0x2C);
+	CHECK(s.input.lockOnKey == 0x5A);
 }
 
 int main()

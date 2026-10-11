@@ -116,23 +116,27 @@ namespace witcher::plugin
 			s.applier.ApplyFraming(result.rig, s.game.thirdPerson);
 		}
 
-		// PlayerCamera::Update runs once per frame on the main thread, right
-		// before the camera works out where to be: the ideal place to steer it.
-		struct CameraUpdateHook
+		// The game calls PlayerCamera::Update directly, never through its vtable,
+		// so hooking it there never fires. The active camera state's Update is
+		// a real virtual call, once per frame on the main thread, before the
+		// state reads the player's rotation and shoulder offset.
+		// Tag only gives each hooked vtable its own `func`.
+		template <int Tag>
+		struct CameraStateUpdateHook
 		{
-			static void thunk(RE::PlayerCamera* a_this)
+			static void thunk(RE::TESCameraState* a_this, RE::BSTSmartPointer<RE::TESCameraState>& a_next)
 			{
 				Tick();
-				func(a_this);
+				func(a_this, a_next);
 			}
 
 			static inline REL::Relocation<decltype(thunk)> func;
 
-			static void Install()
+			static void Install(std::array<REL::ID, 1> a_vtbl, const char* a_name)
 			{
-				REL::Relocation<std::uintptr_t> vtbl{ RE::VTABLE::PlayerCamera[0] };
-				func = vtbl.write_vfunc(0x3, thunk);  // TESCamera::Update
-				logger::info("hooked PlayerCamera::Update");
+				REL::Relocation<std::uintptr_t> vtbl{ a_vtbl[0] };
+				func = vtbl.write_vfunc(0xB, thunk);  // TESCameraState::Update
+				logger::info("hooked {}::Update", a_name);
 			}
 		};
 	}
@@ -151,7 +155,8 @@ namespace witcher::plugin
 		input->SetSettings(s.settings.input);
 		input->Register();
 
-		CameraUpdateHook::Install();
+		CameraStateUpdateHook<0>::Install(RE::VTABLE::ThirdPersonState, "ThirdPersonState");
+		CameraStateUpdateHook<1>::Install(RE::VTABLE::FirstPersonState, "FirstPersonState");
 	}
 
 	void OnGameLoaded()

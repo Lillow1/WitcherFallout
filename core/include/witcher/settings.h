@@ -73,8 +73,8 @@ namespace witcher
 
 	struct InputSettings
 	{
-		std::uint32_t lockOnKey{ 0x2C };       // Z (DirectInput scan code)
-		std::uint32_t shoulderSwapKey{ 0x2E };  // C
+		std::uint32_t lockOnKey{ 0x5A };       // Z (Windows virtual-key code, what FO4 reports)
+		std::uint32_t shoulderSwapKey{ 0x43 };  // C
 		std::uint32_t lockOnGamepad{ 0x0080 };  // right thumbstick click (XInput mask)
 		float mouseFlickScale{ 0.006f };  // raw mouse counts -> flick units (about 100 counts = one switch)
 		float stickFlickScale{ 6.0f };    // right stick held fully for ~0.1 s = one switch

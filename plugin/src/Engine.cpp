@@ -85,7 +85,7 @@ namespace witcher::plugin
 			return true;
 		}
 
-		for (const auto& handle : *handles) {
+		for (auto handle : *handles) {  // by value: native_handle() is non-const here
 			const auto ptr = handle.get();
 			const auto actor = ptr.get();
 			if (!actor || actor == player || actor->IsDeleted() || !actor->Get3D()) {
