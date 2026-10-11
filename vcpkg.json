@@ -1,0 +1,11 @@
+{
+  "name": "witcher-camera",
+  "version-string": "0.1.0",
+  "description": "Witcher-style camera for Fallout 4 1.10.163",
+  "dependencies": [
+    "boost-stl-interfaces",
+    "fmt",
+    "rsm-mmio",
+    "spdlog"
+  ]
+}
