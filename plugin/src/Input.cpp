@@ -30,6 +30,7 @@ namespace witcher::plugin
 		_frame.lockPressed = false;
 		_frame.shoulderPressed = false;
 		_frame.attackPressed = false;
+		_frame.directionalTogglePressed = false;
 		_frame.mouseX = 0.0f;
 		return out;
 	}
@@ -54,6 +55,8 @@ namespace witcher::plugin
 				_frame.lockPressed = true;
 			} else if (code == _settings->shoulderSwapKey) {
 				_frame.shoulderPressed = true;
+			} else if (code == _settings->directionalToggleKey) {
+				_frame.directionalTogglePressed = true;
 			}
 			break;
 		case RE::INPUT_DEVICE::kGamepad:

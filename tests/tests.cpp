@@ -2,6 +2,7 @@
 //   cmake -S fo4-witcher -B build && cmake --build build && ctest --test-dir build
 
 #include "witcher/camera_system.h"
+#include "witcher/directional.h"
 #include "witcher/math.h"
 #include "witcher/settings.h"
 #include "witcher/targeting.h"
@@ -409,6 +410,209 @@ TEST(System_ShakeDecaysToZero)
 	CHECK(r.rig.shakeYaw == 0.0f && r.rig.shakePitch == 0.0f);
 }
 
+// ---- directional movement ----------------------------------------------
+
+namespace
+{
+	constexpr float kFrame = 1.0f / 60.0f;
+
+	// Steps a DirectionalController like the game would: body yaw follows
+	// the output, camera stays at cameraYaw + whatever offset was written.
+	struct DirSim
+	{
+		DirectionalSettings settings{};
+		DirectionalController ctrl{ settings };
+		float body{ 0.0f };
+		float camera{ 0.0f };
+		DirectionalOutput last{};
+
+		void Run(DirectionalInput a_in, float a_seconds)
+		{
+			const int frames = static_cast<int>(a_seconds / kFrame + 0.5f);
+			for (int i = 0; i < frames; ++i) {
+				a_in.dt = kFrame;
+				a_in.allowed = true;
+				a_in.bodyYaw = body;
+				a_in.cameraYaw = camera;
+				last = ctrl.Update(a_in);
+				if (last.driveBody) {
+					body = last.bodyYaw;
+				}
+				camera = WrapAngle(body + last.cameraOffset);
+				a_in.attackStarted = false;
+			}
+		}
+	};
+}
+
+TEST(Remap_IdentityWhenFacingCamera)
+{
+	const auto r = RemapMoveInput({ 1.0f, 0.0f }, 0.3f, 0.3f);
+	CHECK_NEAR(r.x, 1.0f, kEps);
+	CHECK_NEAR(r.y, 0.0f, kEps);
+}
+
+TEST(Remap_BackBecomesForwardWhenTurnedAround)
+{
+	// Running at the camera with the body already turned around.
+	const auto r = RemapMoveInput({ 0.0f, -1.0f }, 0.0f, kPi);
+	CHECK_NEAR(r.x, 0.0f, kEps);
+	CHECK_NEAR(r.y, 1.0f, kEps);
+}
+
+TEST(Remap_KeepsMagnitudeAndClampsDiagonals)
+{
+	auto r = RemapMoveInput({ 0.0f, 0.5f }, 0.0f, kPi / 2.0f);
+	CHECK_NEAR(r.Length(), 0.5f, kEps);
+	CHECK_NEAR(r.x, -0.5f, kEps);  // camera-forward is to the body's left
+	r = RemapMoveInput({ 1.0f, 1.0f }, 0.0f, 0.0f);
+	CHECK_NEAR(r.Length(), 1.0f, kEps);
+}
+
+TEST(Directional_InactiveWhenNotAllowed)
+{
+	DirectionalSettings s{};
+	DirectionalController c(s);
+	DirectionalInput in{};
+	in.dt = kFrame;
+	in.bodyYaw = 1.0f;
+	in.move = { 0.0f, -1.0f };
+	const auto out = c.Update(in);
+	CHECK(!out.active && !out.driveBody);
+	CHECK_NEAR(out.bodyYaw, 1.0f, kEps);
+}
+
+TEST(Directional_TurnsToRunDirectionAtTurnRate_CameraStill)
+{
+	DirSim sim;
+	DirectionalInput in{};
+	in.move = { 0.0f, -1.0f };  // run back toward the camera
+
+	sim.Run(in, 0.1f);
+	// 720 deg/s for 0.1 s = 72 degrees, in either direction (180 is ambiguous).
+	CHECK_NEAR(std::abs(sim.body), DegToRad(72.0f), DegToRad(1.0f));
+	CHECK_NEAR(sim.camera, 0.0f, 1e-3f);
+
+	sim.Run(in, 0.5f);
+	CHECK_NEAR(std::abs(sim.body), kPi, DegToRad(0.5f));
+	CHECK_NEAR(sim.camera, 0.0f, 1e-3f);  // the camera never moved
+	CHECK_NEAR(std::abs(sim.last.cameraOffset), kPi, DegToRad(0.5f));
+}
+
+TEST(Directional_StandingStillHoldsFacing)
+{
+	DirSim sim;
+	sim.body = 0.8f;
+	sim.camera = -0.4f;
+	DirectionalInput in{};
+	in.move = { 0.05f, 0.05f };  // inside the deadzone
+	sim.Run(in, 1.0f);
+	CHECK_NEAR(sim.body, 0.8f, kEps);
+	CHECK_NEAR(sim.camera, -0.4f, 1e-4f);
+	CHECK(!sim.last.driveBody);
+}
+
+TEST(Directional_RangedFacesCamera)
+{
+	DirSim sim;
+	sim.body = kPi / 2.0f;
+	DirectionalInput in{};
+	in.mode = CameraMode::kCombat;
+	in.move = { 0.0f, -1.0f };  // backpedal: with a gun out you strafe, not turn around
+	sim.Run(in, 0.5f);
+	CHECK_NEAR(sim.body, 0.0f, 1e-3f);
+	CHECK_NEAR(sim.last.cameraOffset, 0.0f, 1e-3f);
+}
+
+TEST(Directional_AttackSnapsToCameraThenHolds)
+{
+	DirSim sim;
+	sim.body = DegToRad(90.0f);
+	DirectionalInput in{};
+	in.mode = CameraMode::kMelee;
+	in.attackStarted = true;
+	sim.Run(in, sim.settings.attackSnapTime + 0.02f);
+	CHECK_NEAR(sim.body, 0.0f, DegToRad(0.5f));
+
+	// Start running sideways during the swing: facing stays put until the hold ends.
+	in.attackStarted = false;
+	in.move = { 1.0f, 0.0f };
+	sim.Run(in, sim.settings.attackHoldTime - sim.settings.attackSnapTime - 0.1f);
+	CHECK_NEAR(sim.body, 0.0f, DegToRad(0.5f));
+	sim.Run(in, 0.5f);
+	CHECK_NEAR(sim.body, DegToRad(90.0f), DegToRad(0.5f));
+}
+
+TEST(Directional_LockedRecentersCameraBehindBody)
+{
+	DirSim sim;
+	sim.camera = DegToRad(70.0f);
+	DirectionalInput in{};
+	in.mode = CameraMode::kMelee;
+	in.locked = true;
+	in.forcedYaw = DegToRad(10.0f);
+	sim.Run(in, 1.5f);
+	CHECK_NEAR(sim.body, DegToRad(10.0f), kEps);
+	CHECK_NEAR(sim.last.cameraOffset, 0.0f, DegToRad(0.5f));
+	CHECK_NEAR(sim.camera, DegToRad(10.0f), DegToRad(0.5f));
+}
+
+TEST(System_DirectionalToggleAndTargetingUsesCamera)
+{
+	Settings settings{};
+	CameraSystem sys(settings);
+	// Enemy straight ahead of the CAMERA but behind the character.
+	const Candidate cands[] = { Enemy(1, { 0, 500, 0 }) };
+
+	FrameSnapshot f{};
+	f.dt = kFrame;
+	f.view = LookingNorth();
+	f.bodyYaw = kPi;
+	f.mode = CameraMode::kMelee;
+	f.candidates = cands;
+	f.directionalAllowed = true;
+	f.lockPressed = true;
+
+	auto r = sys.Tick(f);
+	CHECK(r.lockTarget == 1);
+	CHECK(r.directional.active);
+
+	f.lockPressed = false;
+	f.directionalTogglePressed = true;
+	r = sys.Tick(f);
+	CHECK(!sys.DirectionalEnabled());
+	CHECK(!r.directional.active);
+
+	r = sys.Tick(f);
+	CHECK(sys.DirectionalEnabled());
+}
+
+TEST(System_DirectionalRunsWithoutLock)
+{
+	Settings settings{};
+	CameraSystem sys(settings);
+	FrameSnapshot f{};
+	f.dt = kFrame;
+	f.view = LookingNorth();
+	f.bodyYaw = 0.0f;
+	f.mode = CameraMode::kExploration;
+	f.directionalAllowed = true;
+	f.move = { 1.0f, 0.0f };  // run right
+	float body = 0.0f;
+	DirectionalOutput last{};
+	for (int i = 0; i < 60; ++i) {
+		f.bodyYaw = body;
+		const auto r = sys.Tick(f);
+		if (r.rig.driveYaw) {
+			body = r.rig.yaw;
+		}
+		last = r.directional;
+		f.view.yaw = WrapAngle(body + last.cameraOffset);
+	}
+	CHECK_NEAR(body, DegToRad(90.0f), DegToRad(0.5f));
+	CHECK_NEAR(f.view.yaw, 0.0f, 1e-3f);
+}
+
 // ---- settings -----------------------------------------------------------
 
 TEST(Settings_ParsesAndWarns)
@@ -425,6 +629,10 @@ bReleaseOnTargetDeath = true
 fMystery = 1
 fSwitchCooldown = abc
 
+[Directional]
+fTurnRateDeg = 540
+bRangedFacesCamera = off
+
 [Input]
 iLockOnKey = 0x10
 )";
@@ -437,6 +645,8 @@ iLockOnKey = 0x10
 	CHECK(s.lockOn.releaseOnTargetDeath);
 	CHECK_NEAR(s.lockOn.switchCooldown, Settings{}.lockOn.switchCooldown, kEps);
 	CHECK(s.input.lockOnKey == 0x10);
+	CHECK_NEAR(s.directional.turnRateDeg, 540.0f, kEps);
+	CHECK(!s.directional.rangedFacesCamera);
 	CHECK(warnings.size() == 2);
 }
 

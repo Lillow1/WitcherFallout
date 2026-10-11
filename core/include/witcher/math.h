@@ -32,6 +32,14 @@ namespace witcher
 		float Length2D() const { return std::sqrt(x * x + y * y); }
 	};
 
+	struct Vec2
+	{
+		float x{ 0.0f };  // right
+		float y{ 0.0f };  // forward
+
+		float Length() const { return std::sqrt(x * x + y * y); }
+	};
+
 	inline Vec3 Lerp(const Vec3& a_from, const Vec3& a_to, float a_t)
 	{
 		return a_from + (a_to - a_from) * a_t;
@@ -65,6 +73,16 @@ namespace witcher
 	{
 		const Vec3 d = a_to - a_from;
 		return -std::atan2(d.z, d.Length2D());
+	}
+
+	// Steps a_from toward a_to by at most a_maxStep along the shortest arc.
+	inline float TurnToward(float a_from, float a_to, float a_maxStep)
+	{
+		const float d = AngleDelta(a_from, a_to);
+		if (std::abs(d) <= a_maxStep) {
+			return WrapAngle(a_to);
+		}
+		return WrapAngle(a_from + (d > 0.0f ? a_maxStep : -a_maxStep));
 	}
 
 	// Critically damped spring (same model as Unity's SmoothDamp). Frame-rate

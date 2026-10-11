@@ -12,6 +12,7 @@ namespace witcher::plugin
 		bool lockPressed{ false };
 		bool shoulderPressed{ false };
 		bool attackPressed{ false };
+		bool directionalTogglePressed{ false };
 		float mouseX{ 0.0f };  // raw counts accumulated since the last frame
 		float stickX{ 0.0f };  // latest right stick X, -1..1 (held, not accumulated)
 	};

@@ -2,6 +2,7 @@
 
 #include "Engine.h"
 #include "Input.h"
+#include "Movement.h"
 
 #include "witcher/camera_system.h"
 #include "witcher/settings.h"
@@ -26,6 +27,7 @@ namespace witcher::plugin
 			GameState game{};
 			std::chrono::steady_clock::time_point last{};
 			bool resetPending{ true };
+			bool movementHooked{ false };
 		};
 
 		State& Get()
@@ -84,6 +86,7 @@ namespace witcher::plugin
 			}
 			if (!ReadGameState(s.game, s.settings.lockOn.breakDistance + 500.0f)) {
 				s.resetPending = true;
+				movement::SetActive(false);
 				return;
 			}
 			if (s.resetPending) {
@@ -100,20 +103,29 @@ namespace witcher::plugin
 			FrameSnapshot frame{};
 			frame.dt = dt;
 			frame.view = s.game.view;
+			frame.bodyYaw = s.game.bodyYaw;
 			frame.mode = s.game.mode;
 			frame.candidates = s.game.candidates;
 			frame.lookX = input.mouseX * in.mouseFlickScale + input.stickX * in.stickFlickScale * dt;
 			frame.attackStarted = input.attackPressed;
 			frame.lockPressed = input.lockPressed;
 			frame.shoulderPressed = input.shoulderPressed;
+			frame.directionalAllowed = s.movementHooked && s.game.thirdPerson;
+			frame.directionalTogglePressed = input.directionalTogglePressed;
+			frame.move = s.game.move;
 
 			const auto result = s.system->Tick(frame);
 			if (result.lockEvent != LockEvent::kNone) {
 				logger::info("lock {} (target {:08X})", ToString(result.lockEvent), result.lockTarget);
 			}
+			if (input.directionalTogglePressed) {
+				logger::info("directional movement {}", s.system->DirectionalEnabled() ? "on" : "off");
+			}
 
 			s.applier.ApplyRotation(result.rig);
 			s.applier.ApplyFraming(result.rig, s.game.thirdPerson);
+			s.applier.ApplyDirectional(result.directional);
+			movement::SetActive(result.directional.active);
 		}
 
 		// The game calls PlayerCamera::Update directly, never through its vtable,
@@ -157,6 +169,7 @@ namespace witcher::plugin
 
 		CameraStateUpdateHook<0>::Install(RE::VTABLE::ThirdPersonState, "ThirdPersonState");
 		CameraStateUpdateHook<1>::Install(RE::VTABLE::FirstPersonState, "FirstPersonState");
+		s.movementHooked = movement::Install();
 	}
 
 	void OnGameLoaded()

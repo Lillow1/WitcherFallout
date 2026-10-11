@@ -71,10 +71,23 @@ namespace witcher
 		float shakeFrequency{ 18.0f };
 	};
 
+	struct DirectionalSettings
+	{
+		bool enabled{ true };             // starting state; the toggle key flips it in game
+		float turnRateDeg{ 720.0f };      // how fast the character turns to face where you run
+		float aimTurnRateDeg{ 1080.0f };  // turning to face the camera with a gun drawn
+		float attackSnapTime{ 0.1f };     // seconds to turn into an attack's direction
+		float attackHoldTime{ 0.35f };    // facing is locked this long after an attack starts
+		float moveDeadzone{ 0.15f };      // stick/key magnitude below this counts as standing still
+		bool rangedFacesCamera{ true };   // guns drawn: face the crosshair and strafe, like vanilla
+		float lockRecenterTime{ 0.25f };  // locked on: how fast the camera swings behind you
+	};
+
 	struct InputSettings
 	{
 		std::uint32_t lockOnKey{ 0x5A };       // Z (Windows virtual-key code, what FO4 reports)
 		std::uint32_t shoulderSwapKey{ 0x43 };  // C
+		std::uint32_t directionalToggleKey{ 0x4E };  // N
 		std::uint32_t lockOnGamepad{ 0x0080 };  // right thumbstick click (XInput mask)
 		float mouseFlickScale{ 0.006f };  // raw mouse counts -> flick units (about 100 counts = one switch)
 		float stickFlickScale{ 6.0f };    // right stick held fully for ~0.1 s = one switch
@@ -85,6 +98,7 @@ namespace witcher
 		CameraSettings camera{};
 		LockOnSettings lockOn{};
 		SoftLockSettings softLock{};
+		DirectionalSettings directional{};
 		InputSettings input{};
 	};
 

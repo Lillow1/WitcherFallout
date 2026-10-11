@@ -62,6 +62,17 @@ namespace witcher::plugin
 			}
 			return static_cast<RE::ThirdPersonState*>(state);
 		}
+
+		// The third-person state object, even while another state is active.
+		RE::ThirdPersonState* AnyThirdPerson(RE::PlayerCamera* a_camera)
+		{
+			return a_camera ? static_cast<RE::ThirdPersonState*>(a_camera->cameraStates[RE::CameraState::k3rdPerson].get()) : nullptr;
+		}
+	}
+
+	RE::ThirdPersonState* CurrentThirdPerson()
+	{
+		return ThirdPerson(RE::PlayerCamera::GetSingleton());
 	}
 
 	bool ReadGameState(GameState& a_out, float a_searchRadius)
@@ -74,10 +85,16 @@ namespace witcher::plugin
 
 		const Vec3 feet = ToVec(player->data.location);
 		a_out.view.eye = { feet.x, feet.y, feet.z + kEyeHeight };
-		a_out.view.yaw = player->data.angle.z;
+		const auto third = ThirdPerson(camera);
+		const float freeRot = third && third->freeRotationEnabled ? kFreeRotationSign * third->freeRotation.x : 0.0f;
+		a_out.bodyYaw = player->data.angle.z;
+		a_out.view.yaw = WrapAngle(a_out.bodyYaw + freeRot);
 		a_out.view.pitch = player->data.angle.x;
 		a_out.mode = ReadMode(player);
-		a_out.thirdPerson = ThirdPerson(camera) != nullptr;
+		a_out.thirdPerson = third != nullptr;
+
+		const auto controls = RE::PlayerControls::GetSingleton();
+		a_out.move = controls ? Vec2{ controls->data.moveInputVec.x, controls->data.moveInputVec.y } : Vec2{};
 
 		a_out.candidates.clear();
 		const auto handles = HighActorHandles();
@@ -164,6 +181,38 @@ namespace witcher::plugin
 			camera->worldFOV = _savedFov;
 			_savedFov = 0.0f;
 		}
+	}
+
+	void Applier::ApplyDirectional(const DirectionalOutput& a_dir)
+	{
+		const auto camera = RE::PlayerCamera::GetSingleton();
+		const auto player = RE::PlayerCharacter::GetSingleton();
+		if (!camera || !player) {
+			return;
+		}
+
+		if (a_dir.active) {
+			if (const auto third = ThirdPerson(camera)) {
+				// Free rotation is the engine's own "orbit the character" mode:
+				// look input turns the camera, and the body is left alone.
+				third->freeRotationEnabled = true;
+				third->freeRotation.x = kFreeRotationSign * a_dir.cameraOffset;
+				_ownsFreeRotation = true;
+			}
+			return;
+		}
+
+		if (!_ownsFreeRotation) {
+			return;
+		}
+		// Hand control back: turn the body to where the camera was looking.
+		if (const auto third = AnyThirdPerson(camera)) {
+			auto& angle = player->data.angle;
+			angle.z = WrapAngle(angle.z + kFreeRotationSign * third->freeRotation.x);
+			third->freeRotation.x = 0.0f;
+			third->freeRotationEnabled = false;
+		}
+		_ownsFreeRotation = false;
 	}
 
 	void Applier::Reset()

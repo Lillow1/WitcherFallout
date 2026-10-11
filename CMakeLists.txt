@@ -16,6 +16,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 add_library(witcher_core STATIC
 	core/src/camera_rig.cpp
 	core/src/camera_system.cpp
+	core/src/directional.cpp
 	core/src/lock_on.cpp
 	core/src/settings.cpp
 	core/src/targeting.cpp
@@ -54,6 +55,7 @@ if(WITCHER_BUILD_PLUGIN)
 		plugin/src/main.cpp
 		plugin/src/Engine.cpp
 		plugin/src/Input.cpp
+		plugin/src/Movement.cpp
 		plugin/src/Plugin.cpp
 	)
 	target_include_directories(WitcherCamera PRIVATE plugin/src)

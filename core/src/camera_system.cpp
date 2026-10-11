@@ -5,7 +5,9 @@ namespace witcher
 	CameraSystem::CameraSystem(const Settings& a_settings) :
 		_settings(&a_settings),
 		_lockOn(a_settings.lockOn),
-		_rig(a_settings.camera, a_settings.softLock)
+		_rig(a_settings.camera, a_settings.softLock),
+		_directional(a_settings.directional),
+		_directionalOn(a_settings.directional.enabled)
 	{}
 
 	FrameResult CameraSystem::Tick(const FrameSnapshot& a_frame)
@@ -34,10 +36,12 @@ namespace witcher
 			_rig.AddTrauma(a_frame.trauma);
 		}
 
+		const float bodyYaw = a_frame.bodyYaw.value_or(a_frame.view.yaw);
+
 		RigInput in{};
 		in.dt = a_frame.dt;
 		in.eye = a_frame.view.eye;
-		in.playerYaw = a_frame.view.yaw;
+		in.playerYaw = bodyYaw;
 		in.playerPitch = a_frame.view.pitch;
 		in.mode = a_frame.mode;
 		in.attackStarted = a_frame.attackStarted;
@@ -59,6 +63,30 @@ namespace witcher
 
 		result.rig = _rig.Update(in);
 		result.lockTarget = _lockOn.Target();
+
+		if (a_frame.directionalTogglePressed) {
+			_directionalOn = !_directionalOn;
+		}
+
+		DirectionalInput dir{};
+		dir.dt = a_frame.dt;
+		dir.allowed = a_frame.directionalAllowed && _directionalOn;
+		dir.mode = a_frame.mode;
+		dir.move = a_frame.move;
+		dir.cameraYaw = a_frame.view.yaw;
+		dir.bodyYaw = bodyYaw;
+		dir.attackStarted = a_frame.attackStarted;
+		dir.locked = in.lockTarget.has_value();
+		if (result.rig.driveYaw) {
+			dir.forcedYaw = result.rig.yaw;
+		}
+		result.directional = _directional.Update(dir);
+
+		// Directional movement owns the body heading while it's active.
+		if (result.directional.active) {
+			result.rig.driveYaw = result.directional.driveBody;
+			result.rig.yaw = result.directional.bodyYaw;
+		}
 		return result;
 	}
 
@@ -66,5 +94,6 @@ namespace witcher
 	{
 		_lockOn.Release();
 		_rig.ResetFraming(a_mode);
+		_directional.Reset();
 	}
 }

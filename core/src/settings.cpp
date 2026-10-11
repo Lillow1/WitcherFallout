@@ -143,8 +143,19 @@ namespace witcher
 		AddTargeting(keys, "softlock", soft.targeting);
 		keys["softlock.fsnaptime"] = F(soft.snapTime);
 
+		auto& dir = s.directional;
+		keys["directional.benabled"] = B(dir.enabled);
+		keys["directional.fturnratedeg"] = F(dir.turnRateDeg);
+		keys["directional.faimturnratedeg"] = F(dir.aimTurnRateDeg);
+		keys["directional.fattacksnaptime"] = F(dir.attackSnapTime);
+		keys["directional.fattackholdtime"] = F(dir.attackHoldTime);
+		keys["directional.fmovedeadzone"] = F(dir.moveDeadzone);
+		keys["directional.brangedfacescamera"] = B(dir.rangedFacesCamera);
+		keys["directional.flockrecentertime"] = F(dir.lockRecenterTime);
+
 		keys["input.ilockonkey"] = U(in.lockOnKey);
 		keys["input.ishoulderswapkey"] = U(in.shoulderSwapKey);
+		keys["input.idirectionaltogglekey"] = U(in.directionalToggleKey);
 		keys["input.ilockongamepad"] = U(in.lockOnGamepad);
 		keys["input.fmouseflickscale"] = F(in.mouseFlickScale);
 		keys["input.fstickflickscale"] = F(in.stickFlickScale);
