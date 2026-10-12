@@ -1,0 +1,26 @@
+# Copy to tools.toml and fix the paths for your machine.
+# Forward slashes are fine on Windows.
+
+# ffmpeg: https://ffmpeg.org (any recent build). "ffmpeg" if it's on PATH.
+ffmpeg = "ffmpeg"
+
+# xWMAEncode ships with the Creation Kit (Fallout 4/Tools/Audio/) and the old DirectX SDK.
+# {wav} and {out} are filled in per line.
+xwma = ["C:/Games/Fallout 4/Tools/Audio/xWMAEncode.exe", "-b", "48000", "{wav}", "{out}"]
+
+# Lip sync:
+#   "vanilla"  - reuse each line's original lip file. Works out of the box; mouth
+#                timing follows the old performance, so it's close but not exact.
+#   "generate" - make new lip files with the Creation Kit's FaceFXWrapper (below).
+#   "none"     - no lip movement.
+lip_mode = "vanilla"
+
+# FaceFXWrapper command for lip_mode = "generate". Placeholders: {wav} {resampled} {lip} {text}.
+# Check the argument order against your CK install's FaceFXWrapper before a full build:
+# run it once by hand on one line and confirm a .lip file appears.
+lipgen = [
+    "C:/Games/Fallout 4/Tools/LipGen/FaceFXWrapper.exe",
+    "Fallout4", "USEnglish",
+    "C:/Games/Fallout 4/Data/Sound/Voice/Processing/FonixData.cdf",
+    "{wav}", "{resampled}", "{lip}", "{text}",
+]

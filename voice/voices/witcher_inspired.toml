@@ -1,0 +1,40 @@
+# An original player voice inspired by a Witcher heroine: young British woman,
+# low and slightly husky, clipped and dry.
+#
+# It's made by blending Kokoro's stock British voices and shaping the result.
+# No recording of any real person goes in. Tune by ear with:
+#   fo4voice audition --recipe voices/witcher_inspired.toml
+# then adjust weights, speed and pitch, and audition again.
+
+[voice]
+name = "witcher_inspired"
+backend = "kokoro"   # "tone" = test beep, no model needed
+lang = "b"           # British English
+speed = 0.94         # a touch slower: measured, unhurried
+
+# Weighted mix of stock voices. Weights are relative.
+[[voice.blend]]
+voice = "bf_isabella"
+weight = 0.5
+
+[[voice.blend]]
+voice = "bf_emma"
+weight = 0.3
+
+[[voice.blend]]
+voice = "bf_alice"
+weight = 0.2
+
+[post]
+pitch = 0.95   # slightly lower
+# Warmth and a little grit: trim rumble and hiss, lift the low mids, even out levels.
+filters = "highpass=f=70,lowpass=f=9500,equalizer=f=220:t=q:w=1.2:g=2.5,equalizer=f=3500:t=q:w=1.5:g=-1.5,acompressor=threshold=-20dB:ratio=3:attack=5:release=80"
+
+# Words the TTS gets wrong. Applied when extracting lines.
+[pronounce]
+"Vault-Tec" = "Vault Tek"
+"Nuka-Cola" = "Nooka Cola"
+"Codsworth" = "Cods worth"
+"Mirelurk" = "Meer lurk"
+"Synth" = "Sinth"
+"Synths" = "Sinths"

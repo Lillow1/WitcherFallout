@@ -12,6 +12,10 @@ Witcher 3-style third-person camera for **Fallout 4 1.10.163 (old-gen / downgrad
   - The camera pulls back for groups and for big creatures like deathclaws.
 - **Shake**: trauma-based camera shake. The system is wired up, but nothing triggers it yet (see below).
 
+## Player voice
+
+`voice/` holds a separate tool, `fo4voice`. It replaces the female player character's voice with an original, Witcher-inspired TTS voice; no real person's voice is cloned. See [voice/README.md](voice/README.md).
+
 ## Layout
 
 | Path | What |
