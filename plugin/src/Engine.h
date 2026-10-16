@@ -18,6 +18,7 @@ namespace witcher::plugin
 		CameraMode mode{ CameraMode::kExploration };
 		bool thirdPerson{ false };
 		std::vector<Candidate> candidates;
+		std::vector<RE::ActorHandle> handles;  // handles[i] is candidates[i]'s actor
 	};
 
 	// False when there's no player or camera yet (main menu, loading).

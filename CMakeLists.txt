@@ -18,6 +18,7 @@ add_library(witcher_core STATIC
 	core/src/camera_system.cpp
 	core/src/lock_on.cpp
 	core/src/settings.cpp
+	core/src/signs.cpp
 	core/src/targeting.cpp
 )
 target_include_directories(witcher_core PUBLIC core/include)
@@ -55,6 +56,7 @@ if(WITCHER_BUILD_PLUGIN)
 		plugin/src/Engine.cpp
 		plugin/src/Input.cpp
 		plugin/src/Plugin.cpp
+		plugin/src/Signs.cpp
 	)
 	target_include_directories(WitcherCamera PRIVATE plugin/src)
 	target_link_libraries(WitcherCamera PRIVATE witcher_core CommonLibF4::CommonLibF4 fmt::fmt spdlog::spdlog)

@@ -7,6 +7,7 @@
 #include "PCH.h"
 
 #include "Plugin.h"
+#include "Signs.h"
 
 namespace
 {
@@ -74,6 +75,12 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadInterface* a_f
 	if (!messaging || !messaging->RegisterListener(OnMessage)) {
 		logger::critical("couldn't register for F4SE messages");
 		return false;
+	}
+
+	// Signs: the WitcherSigns Papyrus natives. Camera features don't depend on this.
+	const auto papyrus = F4SE::GetPapyrusInterface();
+	if (!papyrus || !papyrus->Register(witcher::plugin::signs::RegisterFunctions)) {
+		logger::error("couldn't register Papyrus functions; Signs won't work");
 	}
 	return true;
 }

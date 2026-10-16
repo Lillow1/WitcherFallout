@@ -12,12 +12,16 @@ Witcher 3-style third-person camera for **Fallout 4 1.10.163 (old-gen / downgrad
   - The camera pulls back for groups and for big creatures like deathclaws.
 - **Shake**: trauma-based camera shake. The system is wired up, but nothing triggers it yet (see below).
 
+## Signs
+
+Aard, Igni, Yrden, Quen and Axii, cast with X (tap or hold) and paid for with Action Points. The plugin handles targeting, costs and cooldowns; Papyrus scripts and spells you set up in the Creation Kit apply the effects. See [signs/README.md](signs/README.md).
+
 ## Layout
 
 | Path | What |
 |---|---|
 | `core/` | Engine-free camera logic: targeting, lock-on, camera rig, settings. Builds on any OS. |
-| `tests/` | 22 tests for the core, no dependencies. |
+| `tests/` | 29 tests for the core, no dependencies. |
 | `plugin/src/` | F4SE plugin. The only code that touches game memory (`Engine.cpp`) or input (`Input.cpp`). |
 | `config/WitcherCamera.ini` | All tunables, commented. |
 

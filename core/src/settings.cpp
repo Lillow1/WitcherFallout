@@ -6,6 +6,7 @@
 #include <functional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 namespace witcher
 {
@@ -142,6 +143,23 @@ namespace witcher
 		keys["softlock.benabled"] = B(soft.enabled);
 		AddTargeting(keys, "softlock", soft.targeting);
 		keys["softlock.fsnaptime"] = F(soft.snapTime);
+
+		auto& signs = s.signs;
+		keys["signs.falthold"] = F(signs.altHoldTime);
+		keys["signs.baimatlocktarget"] = B(signs.aimAtLockTarget);
+		static constexpr const char* kSignSections[kSignCount] = { "aard", "igni", "yrden", "quen", "axii" };
+		for (std::size_t i = 0; i < kSignCount; ++i) {
+			const std::string sec = std::string("signs.") + kSignSections[i] + ".";
+			auto& spec = signs.specs[i];
+			for (const auto& [prefix, mode] : { std::pair<std::string, SignMode*>{ "", &spec.normal }, { "alt", &spec.alt } }) {
+				keys[sec + "f" + prefix + "apcost"] = F(mode->apCost);
+				keys[sec + "f" + prefix + "cooldown"] = F(mode->cooldown);
+				keys[sec + "f" + prefix + "range"] = F(mode->range);
+				keys[sec + "f" + prefix + "conedeg"] = F(mode->coneDeg);
+				keys[sec + "i" + prefix + "maxtargets"] = U(mode->maxTargets);
+			}
+			keys[sec + "baffectsnonhostile"] = B(spec.affectsNonHostile);
+		}
 
 		keys["input.ilockonkey"] = U(in.lockOnKey);
 		keys["input.ishoulderswapkey"] = U(in.shoulderSwapKey);

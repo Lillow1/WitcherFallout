@@ -4,6 +4,7 @@
 #include "witcher/camera_system.h"
 #include "witcher/math.h"
 #include "witcher/settings.h"
+#include "witcher/signs.h"
 #include "witcher/targeting.h"
 
 #include <cmath>
@@ -409,6 +410,136 @@ TEST(System_ShakeDecaysToZero)
 	CHECK(r.rig.shakeYaw == 0.0f && r.rig.shakePitch == 0.0f);
 }
 
+// ---- signs -----------------------------------------------------------------
+
+namespace
+{
+	Candidate Friendly(ActorId id, Vec3 pos)
+	{
+		Candidate c = Enemy(id, pos);
+		c.hostile = false;
+		return c;
+	}
+
+	std::vector<ActorId> Ids(std::span<const Candidate> a_cands, const std::vector<std::size_t>& a_idx)
+	{
+		std::vector<ActorId> out;
+		for (auto i : a_idx) {
+			out.push_back(a_cands[i].id);
+		}
+		return out;
+	}
+}
+
+TEST(Signs_ConeHitsInsideOnlyNearestFirst)
+{
+	SignMode m{ 30.0f, 1.0f, 600.0f, 60.0f, 6 };
+	const Candidate cands[] = {
+		Enemy(1, { 0, 500, 0 }),     // ahead, far
+		Enemy(2, { 50, 200, 0 }),    // ahead, near
+		Enemy(3, { 400, 100, 0 }),   // off to the right: outside a 60 degree cone
+		Enemy(4, { 0, 900, 0 }),     // out of range
+		Friendly(5, { 0, 300, 0 }),  // not hostile
+	};
+	const auto t = SelectSignTargets(SignShape::kCone, m, false, true, LookingNorth(), cands, 0);
+	CHECK((Ids(cands, t) == std::vector<ActorId>{ 2, 1 }));
+
+	const auto withFriendly = SelectSignTargets(SignShape::kCone, m, true, true, LookingNorth(), cands, 0);
+	CHECK((Ids(cands, withFriendly) == std::vector<ActorId>{ 2, 5, 1 }));
+}
+
+TEST(Signs_ConeAimsAtLockTarget)
+{
+	SignMode m{ 30.0f, 1.0f, 600.0f, 40.0f, 6 };
+	const Candidate cands[] = { Enemy(1, { 0, 400, 0 }), Enemy(2, { 400, 0, 0 }) };  // ahead, and due east
+	auto t = SelectSignTargets(SignShape::kCone, m, false, true, LookingNorth(), cands, 2);
+	CHECK((Ids(cands, t) == std::vector<ActorId>{ 2 }));
+	t = SelectSignTargets(SignShape::kCone, m, false, false, LookingNorth(), cands, 2);
+	CHECK((Ids(cands, t) == std::vector<ActorId>{ 1 }));
+}
+
+TEST(Signs_AreaAndFullCircleIgnoreFacing_CapTargets)
+{
+	SignMode m{ 30.0f, 1.0f, 400.0f, 360.0f, 2 };
+	const Candidate cands[] = { Enemy(1, { 0, -300, 0 }), Enemy(2, { 100, 0, 0 }), Enemy(3, { -200, 0, 0 }) };
+	auto t = SelectSignTargets(SignShape::kArea, m, false, true, LookingNorth(), cands, 0);
+	CHECK((Ids(cands, t) == std::vector<ActorId>{ 2, 3 }));  // nearest two, behind ones included
+	t = SelectSignTargets(SignShape::kCone, m, false, true, LookingNorth(), cands, 0);
+	CHECK(t.size() == 2);  // a 360 degree cone (Aard's alt) behaves like an area
+}
+
+TEST(Signs_SinglePrefersLockThenBestAhead)
+{
+	SignMode m{ 35.0f, 1.0f, 800.0f, 30.0f, 1 };
+	const Candidate cands[] = { Enemy(1, { 0, 500, 0 }), Enemy(2, { 500, 0, 0 }) };
+	auto t = SelectSignTargets(SignShape::kSingle, m, false, true, LookingNorth(), cands, 2);
+	CHECK((Ids(cands, t) == std::vector<ActorId>{ 2 }));  // locked target even off to the side
+	t = SelectSignTargets(SignShape::kSingle, m, false, true, LookingNorth(), cands, 0);
+	CHECK((Ids(cands, t) == std::vector<ActorId>{ 1 }));
+	const Candidate behind[] = { Enemy(1, { 0, -500, 0 }) };
+	CHECK(SelectSignTargets(SignShape::kSingle, m, false, true, LookingNorth(), behind, 0).empty());
+	CHECK(SelectSignTargets(SignShape::kSelf, m, false, true, LookingNorth(), cands, 1).empty());
+}
+
+TEST(SignBook_CycleAndSelect)
+{
+	SignsSettings s{};
+	SignBook book(s);
+	CHECK(book.Selected() == Sign::kAard);
+	CHECK(book.Cycle(-1) == Sign::kAxii);
+	CHECK(book.Cycle(1) == Sign::kAard);
+	CHECK(book.Cycle(1) == Sign::kIgni);
+	CHECK(book.Select(3) == Sign::kQuen);
+	CHECK(book.Select(99) == Sign::kQuen);
+	CHECK(SignName(Sign::kYrden) == "Yrden");
+}
+
+TEST(SignBook_CostCooldownAndTargets)
+{
+	SignsSettings s{};
+	SignBook book(s);
+	const Candidate cands[] = { Enemy(1, { 0, 300, 0 }) };
+	const auto& aard = s.specs[0];
+
+	auto r = book.TryCast(false, aard.normal.apCost - 1.0f, LookingNorth(), cands, 0);
+	CHECK(r.result == CastResult::kNoActionPoints);
+	CHECK(book.CooldownRemaining(Sign::kAard) == 0.0f);  // a failed cast starts no cooldown
+
+	r = book.TryCast(false, 100.0f, LookingNorth(), cands, 0);
+	CHECK(r.result == CastResult::kOk);
+	CHECK_NEAR(r.cost, aard.normal.apCost, kEps);
+	CHECK(r.targets.size() == 1);
+
+	CHECK(book.TryCast(false, 100.0f, LookingNorth(), cands, 0).result == CastResult::kCooldown);
+	book.Tick(aard.normal.cooldown + 0.01f);
+	r = book.TryCast(true, 100.0f, LookingNorth(), cands, 0);
+	CHECK(r.result == CastResult::kOk && r.alt);
+	CHECK_NEAR(r.cost, aard.alt.apCost, kEps);
+	CHECK_NEAR(book.CooldownRemaining(Sign::kAard), aard.alt.cooldown, kEps);
+
+	// Other Signs have their own cooldowns.
+	book.Select(static_cast<std::int32_t>(Sign::kIgni));
+	CHECK(book.TryCast(false, 100.0f, LookingNorth(), cands, 0).result == CastResult::kOk);
+}
+
+TEST(SignBook_ConesCastAtNothing_AxiiNeedsTarget)
+{
+	SignsSettings s{};
+	SignBook book(s);
+	const std::span<const Candidate> none;
+	auto r = book.TryCast(false, 100.0f, LookingNorth(), none, 0);
+	CHECK(r.result == CastResult::kOk && r.targets.empty());  // Aard into the air still goes off
+
+	book.Select(static_cast<std::int32_t>(Sign::kAxii));
+	r = book.TryCast(false, 100.0f, LookingNorth(), none, 0);
+	CHECK(r.result == CastResult::kNoTarget);
+	CHECK(book.CooldownRemaining(Sign::kAxii) == 0.0f);
+
+	book.Select(static_cast<std::int32_t>(Sign::kQuen));
+	r = book.TryCast(false, 100.0f, LookingNorth(), none, 0);
+	CHECK(r.result == CastResult::kOk && r.targets.empty());
+}
+
 // ---- settings -----------------------------------------------------------
 
 TEST(Settings_ParsesAndWarns)
@@ -425,6 +556,14 @@ bReleaseOnTargetDeath = true
 fMystery = 1
 fSwitchCooldown = abc
 
+[Signs]
+fAltHold = 0.6
+
+[Signs.Igni]
+fApCost = 25
+iAltMaxTargets = 9
+bAffectsNonHostile = 1
+
 [Input]
 iLockOnKey = 0x10
 )";
@@ -437,6 +576,11 @@ iLockOnKey = 0x10
 	CHECK(s.lockOn.releaseOnTargetDeath);
 	CHECK_NEAR(s.lockOn.switchCooldown, Settings{}.lockOn.switchCooldown, kEps);
 	CHECK(s.input.lockOnKey == 0x10);
+	CHECK_NEAR(s.signs.altHoldTime, 0.6f, kEps);
+	CHECK_NEAR(s.signs.specs[1].normal.apCost, 25.0f, kEps);
+	CHECK(s.signs.specs[1].alt.maxTargets == 9);
+	CHECK(s.signs.specs[1].affectsNonHostile);
+	CHECK_NEAR(s.signs.specs[0].normal.apCost, Settings{}.signs.specs[0].normal.apCost, kEps);
 	CHECK(warnings.size() == 2);
 }
 

@@ -3,6 +3,7 @@
 // Tunables for the camera system, loaded from Data/F4SE/Plugins/WitcherCamera.ini.
 // Every value has a default so a missing or partial INI still works.
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -71,6 +72,45 @@ namespace witcher
 		float shakeFrequency{ 18.0f };
 	};
 
+	// ---- Signs (see signs.h) ----
+
+	inline constexpr std::size_t kSignCount = 5;  // Aard, Igni, Yrden, Quen, Axii
+
+	enum class SignShape
+	{
+		kCone,    // everyone in a cone in front of you
+		kArea,    // everyone in a circle around you
+		kSingle,  // one target: the lock-on target, else the best one ahead
+		kSelf     // no targets
+	};
+
+	// One way of casting a Sign (normal tap, or the alternate held cast).
+	struct SignMode
+	{
+		float apCost{ 30.0f };
+		float cooldown{ 1.0f };   // seconds before this Sign can be cast again
+		float range{ 600.0f };    // game units
+		float coneDeg{ 60.0f };   // full width of the cone (kCone, and kSingle's search cone)
+		std::uint32_t maxTargets{ 6 };
+	};
+
+	struct SignSpec
+	{
+		SignShape shape{ SignShape::kCone };
+		SignMode normal{};
+		SignMode alt{};
+		bool affectsNonHostile{ false };  // false: settlers and companions are left out
+	};
+
+	std::array<SignSpec, kSignCount> DefaultSignSpecs();
+
+	struct SignsSettings
+	{
+		std::array<SignSpec, kSignCount> specs{ DefaultSignSpecs() };
+		float altHoldTime{ 0.4f };     // hold the cast key this long for the alternate mode
+		bool aimAtLockTarget{ true };  // cones point at the lock-on target instead of the camera
+	};
+
 	struct InputSettings
 	{
 		std::uint32_t lockOnKey{ 0x5A };       // Z (Windows virtual-key code, what FO4 reports)
@@ -85,6 +125,7 @@ namespace witcher
 		CameraSettings camera{};
 		LockOnSettings lockOn{};
 		SoftLockSettings softLock{};
+		SignsSettings signs{};
 		InputSettings input{};
 	};
 

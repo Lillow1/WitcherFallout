@@ -2,6 +2,7 @@
 
 #include "Engine.h"
 #include "Input.h"
+#include "Signs.h"
 
 #include "witcher/camera_system.h"
 #include "witcher/settings.h"
@@ -112,6 +113,8 @@ namespace witcher::plugin
 				logger::info("lock {} (target {:08X})", ToString(result.lockEvent), result.lockTarget);
 			}
 
+			signs::OnFrame(dt, s.game, result.lockTarget);
+
 			s.applier.ApplyRotation(result.rig);
 			s.applier.ApplyFraming(result.rig, s.game.thirdPerson);
 		}
@@ -151,6 +154,8 @@ namespace witcher::plugin
 		s.system = std::make_unique<CameraSystem>(s.settings);
 		s.last = std::chrono::steady_clock::now();
 
+		signs::Init(s.settings.signs);
+
 		auto input = InputHandler::GetSingleton();
 		input->SetSettings(s.settings.input);
 		input->Register();
@@ -162,5 +167,6 @@ namespace witcher::plugin
 	void OnGameLoaded()
 	{
 		Get().resetPending = true;
+		signs::OnGameLoaded();
 	}
 }

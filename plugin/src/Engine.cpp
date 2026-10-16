@@ -80,6 +80,7 @@ namespace witcher::plugin
 		a_out.thirdPerson = ThirdPerson(camera) != nullptr;
 
 		a_out.candidates.clear();
+		a_out.handles.clear();
 		const auto handles = HighActorHandles();
 		if (!handles) {
 			return true;
@@ -108,6 +109,7 @@ namespace witcher::plugin
 			c.visible = true;  // TODO: needs a line-of-sight call; lock drops on distance until then
 			c.scale = h / kHumanHeight;
 			a_out.candidates.push_back(c);
+			a_out.handles.push_back(handle);
 		}
 		return true;
 	}
